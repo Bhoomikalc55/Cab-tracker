@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CabTrack — Employee Ride Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@500;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#181c27;--card:#1f2436;--border:#2a3050;
+  --accent:#4f6ef7;--accent2:#7c3aed;--green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --text:#e8eaf6;--muted:#7b82a8;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+.app{display:none;flex-direction:column;min-height:100vh}.app.active{display:flex}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
+.logo{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+.logo-g{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-user{display:flex;align-items:center;gap:12px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.nav-info{font-size:13px;line-height:1.3}.nav-info strong{display:block;color:#fff;font-size:14px}.nav-info span{color:var(--muted)}
+.btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:.2s}.btn-logout:hover{color:var(--red);border-color:var(--red)}
+main{flex:1;padding:2rem;max-width:1200px;margin:0 auto;width:100%}
+#auth-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg)}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2.5rem;width:100%;max-width:420px}
+.auth-title{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;color:#fff;margin-bottom:.3rem}
+.auth-sub{color:var(--muted);font-size:14px;margin-bottom:2rem}
+.tabs{display:flex;background:var(--card);border-radius:10px;padding:4px;margin-bottom:1.5rem}
+.tab{flex:1;padding:8px;text-align:center;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);transition:.2s}.tab.active{background:var(--accent);color:#fff}
+.form-group{margin-bottom:1rem}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
+input,select{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;font-size:14px;font-family:inherit;transition:.2s;outline:none}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
+input::placeholder{color:var(--muted)}
+select option{background:var(--card)}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}.btn-primary:hover{opacity:.9;transform:translateY(-1px)}.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.msg{font-size:13px;margin-top:.8rem;padding:10px 14px;border-radius:8px;text-align:center}
+.msg.err{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.msg.ok{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.section-title{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:1.2rem}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.5rem}
+.stat-card .lbl{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+.stat-card .val{font-size:1.8rem;font-weight:600;color:#fff}
+.stat-card .sub{font-size:12px;color:var(--muted);margin-top:.3rem}
+.ride-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-bottom:2rem}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:1rem}
+.status-badge.in{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.status-badge.idle{background:rgba(79,110,247,.15);color:var(--accent);border:1px solid rgba(79,110,247,.3)}
+.dot{width:7px;height:7px;border-radius:50%;animation:pulse 1.5s infinite}
+.in .dot{background:var(--green)}.idle .dot{background:var(--accent)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ride-form{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+@media(max-width:600px){.ride-form{grid-template-columns:1fr}.cards-grid{grid-template-columns:1fr 1fr}}
+.btn-ci{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:var(--green);padding:12px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}.btn-ci:hover{background:rgba(16,185,129,.25)}.btn-ci:disabled{opacity:.5;cursor:not-allowed}
+.btn-co{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:var(--red);padding:12px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}.btn-co:hover{background:rgba(239,68,68,.25)}.btn-co:disabled{opacity:.5;cursor:not-allowed}
+.timer{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:700;color:#fff;margin:1rem 0;letter-spacing:.02em}
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--card);padding:11px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:.15s}.tbody tr:last-child{border-bottom:none}.tbody tr:hover{background:var(--card)}
+td{padding:11px 16px;color:var(--text);white-space:nowrap}
+.pill{padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600}
+.pill.done{background:rgba(16,185,129,.12);color:var(--green)}
+.pill.act{background:rgba(245,158,11,.12);color:var(--amber)}
+.admin-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.8rem}
+.btn-export{background:rgba(79,110,247,.15);border:1px solid rgba(79,110,247,.4);color:var(--accent);padding:10px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s;display:flex;align-items:center;gap:8px}.btn-export:hover{background:rgba(79,110,247,.25)}
+.filters{display:flex;gap:.8rem;margin-bottom:1.2rem;flex-wrap:wrap}
+.filters input,.filters select{width:auto;flex:1;min-width:130px;font-size:13px;padding:8px 12px}
+.nav-tabs{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:.5rem;flex-wrap:wrap}
+.nav-tab{padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);transition:.2s;border:none;background:transparent;font-family:inherit}.nav-tab.active{color:#fff;background:var(--card)}.nav-tab:hover:not(.active){color:var(--text)}
+.page{display:none}.page.active{display:block}
+.empty{text-align:center;padding:3rem;color:var(--muted);font-size:14px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.badge-admin{font-size:.7rem;color:var(--muted);font-family:'DM Sans';font-weight:400;margin-left:6px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ AUTH ══════════ -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-title">🚖 CabTrack</div>
+    <div class="auth-sub">Employee cab ride management system</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('login')">Sign In</div>
+      <div class="tab" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <div id="login-form">
+      <div class="form-group"><label>Company Email</label><input type="email" id="l-email" placeholder="name@company.com"></div>
+      <div class="form-group"><label>Employee ID <span style="color:var(--muted);font-size:11px">(type ADMIN if you are admin)</span></label><input type="text" id="l-empid" placeholder="EMP-001"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"></div>
+      <button class="btn-primary" id="l-btn" onclick="login()">Sign In</button>
+      <div id="l-msg"></div>
+    </div>
+
+    <div id="register-form" style="display:none">
+      <div class="form-group"><label>Full Name</label><input type="text" id="r-name" placeholder="John Doe"></div>
+      <div class="form-group"><label>Company Email</label><input type="email" id="r-email" placeholder="name@company.com"></div>
+      <div class="form-group"><label>Employee ID</label><input type="text" id="r-empid" placeholder="EMP-001"></div>
+      <div class="form-group"><label>Department</label><input type="text" id="r-dept" placeholder="Engineering"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="r-pass" placeholder="Min 6 characters"></div>
+      <button class="btn-primary" id="r-btn" onclick="register()">Create Account</button>
+      <div id="r-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ EMPLOYEE APP ══════════ -->
+<div class="app" id="employee-app">
+  <nav>
+    <div class="logo">🚖 <span class="logo-g">CabTrack</span></div>
+    <div class="nav-user">
+      <div class="avatar" id="emp-av"></div>
+      <div class="nav-info"><strong id="emp-name"></strong><span id="emp-id"></span></div>
+      <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+  <main>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
+      <button class="nav-tab" onclick="showPage('history')">My Rides</button>
+    </div>
+
+    <div class="page active" id="page-dashboard">
+      <div class="cards-grid">
+        <div class="stat-card"><div class="lbl">Total Rides</div><div class="val" id="s-total">—</div><div class="sub">All time</div></div>
+        <div class="stat-card"><div class="lbl">This Month</div><div class="val" id="s-month">—</div><div class="sub">Rides taken</div></div>
+        <div class="stat-card"><div class="lbl">Avg Duration</div><div class="val" id="s-avg">—</div><div class="sub">Minutes</div></div>
+      </div>
+
+      <div class="ride-card">
+        <div id="badge-wrap"><div class="status-badge idle"><div class="dot"></div>Not Checked In</div></div>
+
+        <div id="ci-section">
+          <div class="section-title">Start a Ride</div>
+          <div class="ride-form">
+            <div class="form-group"><label>Source (Pick-up)</label><input type="text" id="src" placeholder="Office, Whitefield…"></div>
+            <div class="form-group"><label>Destination (Drop-off)</label><input type="text" id="dst" placeholder="Home, Client site…"></div>
+            <div class="form-group"><label>Cab / Vehicle Number</label><input type="text" id="cab" placeholder="KA-01-AB-1234"></div>
+            <div class="form-group">
+              <label>Cab Type</label>
+              <select id="cabtype"><option>Sedan</option><option>SUV</option><option>Mini</option><option>AC Taxi</option><option>Shared Cab</option></select>
+            </div>
+          </div>
+          <div id="ci-msg"></div>
+          <button class="btn-ci" id="ci-btn" onclick="checkIn()">✓ Check In — Board Cab</button>
+        </div>
+
+        <div id="co-section" style="display:none">
+          <div class="section-title">Active Ride</div>
+          <div class="timer" id="live-timer">00:00:00</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:1.2rem">
+            From <strong id="r-src" style="color:var(--text)"></strong>
+            → <strong id="r-dst" style="color:var(--text)"></strong>
+          </div>
+          <div id="co-msg"></div>
+          <button class="btn-co" id="co-btn" onclick="checkOut()">✗ Check Out — Arrived</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-history">
+      <div class="section-title">My Ride History</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Source</th><th>Destination</th><th>Cab</th><th>Check-In</th><th>Check-Out</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody id="emp-hist"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ ADMIN APP ══════════ -->
+<div class="app" id="admin-app">
+  <nav>
+    <div class="logo">🚖 <span class="logo-g">CabTrack</span><span class="badge-admin">Admin</span></div>
+    <div class="nav-user">
+      <div class="avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">A</div>
+      <div class="nav-info"><strong>Administrator</strong><span id="admin-email"></span></div>
+      <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+  <main>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showAdminPage('overview')">Overview</button>
+      <button class="nav-tab" onclick="showAdminPage('rides')">All Rides</button>
+      <button class="nav-tab" onclick="showAdminPage('employees')">Employees</button>
+    </div>
+
+    <div class="page active" id="admin-overview">
+      <div class="cards-grid">
+        <div class="stat-card"><div class="lbl">Total Rides</div><div class="val" id="a-total">—</div></div>
+        <div class="stat-card"><div class="lbl">Active Now</div><div class="val" id="a-active">—</div></div>
+        <div class="stat-card"><div class="lbl">Employees</div><div class="val" id="a-emps">—</div></div>
+        <div class="stat-card"><div class="lbl">Avg Duration</div><div class="val" id="a-avg">—</div><div class="sub">Minutes</div></div>
+      </div>
+      <div class="section-title">Recent Rides</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Employee</th><th>ID</th><th>Source</th><th>Destination</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody id="admin-recent"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page" id="admin-rides">
+      <div class="admin-hdr">
+        <div class="section-title" style="margin:0">All Rides</div>
+        <button class="btn-export" onclick="exportExcel()">⬇ Export to Excel</button>
+      </div>
+      <div class="filters">
+        <input type="text" id="f-name" placeholder="Search name / ID…" oninput="loadAdminRides()">
+        <input type="date" id="f-date" oninput="loadAdminRides()">
+        <select id="f-status" onchange="loadAdminRides()">
+          <option value="">All statuses</option>
+          <option value="Completed">Completed</option>
+          <option value="Active">Active</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Employee</th><th>Emp ID</th><th>Dept</th><th>Source</th><th>Destination</th><th>Cab</th><th>Check-In</th><th>Check-Out</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody id="admin-rides-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page" id="admin-employees">
+      <div class="section-title">Registered Employees</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Emp ID</th><th>Email</th><th>Department</th><th>Total Rides</th><th>Last Ride</th></tr></thead>
+          <tbody id="admin-emp-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── AUTO-DETECT API URL ───────────────────────────────────────────────────
+// In production, frontend is served from same domain as backend.
+// In dev, backend runs on localhost:3001.
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:3001/api'
+  : window.location.origin + '/api';
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let token = localStorage.getItem('ct_token');
+let user  = JSON.parse(localStorage.getItem('ct_user') || 'null');
+let timerIv = null, rideStart = null;
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { 'Content-Type':'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Request failed');
+  return d;
+}
+const $  = id => document.getElementById(id);
+const msg = (id, text, type) => $(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+const spin = (id, on, label) => { const b=$(id); b.disabled=on; b.innerHTML=on?`<span class="spinner"></span>${label}`:label; };
+const fmtT = iso => iso ? new Date(iso).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
+const fmtD = iso => iso ? new Date(iso).toLocaleDateString('en-IN') : '—';
+const pill  = s  => s==='Completed' ? '<span class="pill done">Completed</span>' : '<span class="pill act">Active</span>';
+const empty = (cols, text='No data yet.') => `<tr><td colspan="${cols}"><div class="empty">${text}</div></td></tr>`;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', i===(t==='login'?0:1)));
+  $('login-form').style.display    = t==='login'    ? '' : 'none';
+  $('register-form').style.display = t==='register' ? '' : 'none';
+}
+async function register() {
+  const [name,email,empId,dept,pass] = ['r-name','r-email','r-empid','r-dept','r-pass'].map(id=>$(id).value.trim());
+  if (!name||!email||!empId||!pass) return msg('r-msg','All fields required.','err');
+  spin('r-btn',true,'Creating…');
+  try {
+    await api('POST','/auth/register',{name,email,empId,department:dept,password:pass});
+    msg('r-msg','Account created! Sign in now.','ok');
+    setTimeout(()=>switchTab('login'),1500);
+  } catch(e){ msg('r-msg',e.message,'err'); }
+  finally { spin('r-btn',false,'Create Account'); }
+}
+async function login() {
+  const email=$('l-email').value.trim(), empId=$('l-empid').value.trim(), pass=$('l-pass').value;
+  if (!email||!pass) return msg('l-msg','Email and password required.','err');
+  spin('l-btn',true,'Signing in…');
+  try {
+    const d = await api('POST','/auth/login',{email,empId,password:pass});
+    token=d.token; user=d.user;
+    localStorage.setItem('ct_token',token);
+    localStorage.setItem('ct_user',JSON.stringify(user));
+    $('auth-screen').style.display='none';
+    user.role==='admin' ? openAdmin() : openEmployee();
+  } catch(e){ msg('l-msg',e.message,'err'); }
+  finally { spin('l-btn',false,'Sign In'); }
+}
+function logout() {
+  clearInterval(timerIv); token=null; user=null;
+  localStorage.removeItem('ct_token'); localStorage.removeItem('ct_user');
+  document.querySelectorAll('.app').forEach(a=>a.classList.remove('active'));
+  $('auth-screen').style.display='flex';
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (token && user) {
+    $('auth-screen').style.display='none';
+    user.role==='admin' ? openAdmin() : openEmployee();
+  }
+});
+
+// ── EMPLOYEE ──────────────────────────────────────────────────────────────
+async function openEmployee() {
+  $('employee-app').classList.add('active');
+  $('emp-av').textContent = user.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  $('emp-name').textContent = user.name;
+  $('emp-id').textContent   = user.empId;
+  loadStats();
+  try { const {ride}=await api('GET','/rides/active'); if(ride) resumeUI(ride); } catch{}
+}
+function showPage(p) {
+  document.querySelectorAll('#employee-app .page').forEach(el=>el.classList.remove('active'));
+  $('page-'+p).classList.add('active');
+  document.querySelectorAll('#employee-app .nav-tab').forEach((el,i)=>
+    el.classList.toggle('active',['dashboard','history'][i]===p));
+  if(p==='history') loadHistory();
+}
+async function loadStats() {
+  try {
+    const d=await api('GET','/rides/stats');
+    $('s-total').textContent = d.total||0;
+    $('s-month').textContent = d.this_month||0;
+    $('s-avg').textContent   = d.avg_duration ? d.avg_duration+'m' : '—';
+  } catch{}
+}
+async function checkIn() {
+  const src=$('src').value.trim(), dst=$('dst').value.trim(),
+        cab=$('cab').value.trim(), cabType=$('cabtype').value;
+  if(!src||!dst) return msg('ci-msg','Source and destination required.','err');
+  spin('ci-btn',true,'Checking in…');
+  try {
+    const {ride}=await api('POST','/rides/checkin',{source:src,destination:dst,cabNumber:cab,cabType});
+    $('ci-msg').innerHTML='';
+    resumeUI(ride);
+  } catch(e){ msg('ci-msg',e.message,'err'); }
+  finally { spin('ci-btn',false,'✓ Check In — Board Cab'); }
+}
+function resumeUI(ride) {
+  $('ci-section').style.display='none';
+  $('co-section').style.display='';
+  $('r-src').textContent=ride.source;
+  $('r-dst').textContent=ride.destination;
+  $('badge-wrap').innerHTML='<div class="status-badge in"><div class="dot"></div>Checked In — Ride Active</div>';
+  rideStart=new Date(ride.check_in_time);
+  clearInterval(timerIv);
+  timerIv=setInterval(()=>{
+    const d=Math.floor((Date.now()-rideStart)/1000);
+    $('live-timer').textContent=
+      [Math.floor(d/3600),Math.floor((d%3600)/60),d%60].map(n=>String(n).padStart(2,'0')).join(':');
+  },1000);
+}
+async function checkOut() {
+  spin('co-btn',true,'Checking out…');
+  try {
+    const {ride}=await api('POST','/rides/checkout');
+    clearInterval(timerIv);
+    $('ci-section').style.display='';
+    $('co-section').style.display='none';
+    $('badge-wrap').innerHTML='<div class="status-badge idle"><div class="dot"></div>Not Checked In</div>';
+    $('live-timer').textContent='00:00:00';
+    ['src','dst','cab'].forEach(id=>$(id).value='');
+    msg('ci-msg',`✅ Ride completed! Duration: ${ride.duration_str}`,'ok');
+    loadStats();
+  } catch(e){ msg('co-msg',e.message,'err'); }
+  finally { spin('co-btn',false,'✗ Check Out — Arrived'); }
+}
+async function loadHistory() {
+  const tbody=$('emp-hist');
+  tbody.innerHTML=empty(8,'Loading…');
+  try {
+    const {rides}=await api('GET','/rides/mine');
+    tbody.innerHTML=rides.length ? rides.map(r=>`<tr>
+      <td>${fmtD(r.check_in_time)}</td><td>${r.source}</td><td>${r.destination}</td>
+      <td>${r.cab_number||'—'} <span style="font-size:11px;color:var(--muted)">${r.cab_type||''}</span></td>
+      <td>${fmtT(r.check_in_time)}</td><td>${fmtT(r.check_out_time)}</td>
+      <td>${r.duration_str||'Active'}</td><td>${pill(r.status)}</td>
+    </tr>`).join('') : empty(8);
+  } catch(e){ tbody.innerHTML=empty(8,e.message); }
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────
+async function openAdmin() {
+  $('admin-app').classList.add('active');
+  $('admin-email').textContent=user.email;
+  loadAdminStats(); loadAdminRecent();
+}
+function showAdminPage(p) {
+  document.querySelectorAll('#admin-app .page').forEach(el=>el.classList.remove('active'));
+  $('admin-'+p).classList.add('active');
+  document.querySelectorAll('#admin-app .nav-tab').forEach((el,i)=>
+    el.classList.toggle('active',['overview','rides','employees'][i]===p));
+  if(p==='rides')     loadAdminRides();
+  if(p==='employees') loadAdminEmps();
+}
+async function loadAdminStats() {
+  try {
+    const d=await api('GET','/admin/stats');
+    $('a-total').textContent  = d.total||0;
+    $('a-active').textContent = d.active||0;
+    $('a-emps').textContent   = d.total_employees||0;
+    $('a-avg').textContent    = d.avg_duration ? d.avg_duration+'m' : '—';
+  } catch{}
+}
+async function loadAdminRecent() {
+  const tbody=$('admin-recent');
+  try {
+    const {rides}=await api('GET','/admin/rides?limit=8');
+    tbody.innerHTML=rides.length ? rides.map(r=>`<tr>
+      <td>${r.emp_name}</td><td>${r.emp_id}</td><td>${r.source}</td>
+      <td>${r.destination}</td><td>${r.duration_str||'Active'}</td><td>${pill(r.status)}</td>
+    </tr>`).join('') : empty(6);
+  } catch(e){ tbody.innerHTML=empty(6,e.message); }
+}
+async function loadAdminRides() {
+  const tbody=$('admin-rides-body');
+  tbody.innerHTML=empty(11,'Loading…');
+  const p=new URLSearchParams();
+  const name=$('f-name')?.value, date=$('f-date')?.value, status=$('f-status')?.value;
+  if(name)   p.set('name',name);
+  if(date)   p.set('date',date);
+  if(status) p.set('status',status);
+  try {
+    const {rides}=await api('GET','/admin/rides?'+p);
+    tbody.innerHTML=rides.length ? rides.map(r=>`<tr>
+      <td>${fmtD(r.check_in_time)}</td><td>${r.emp_name}</td><td>${r.emp_id}</td>
+      <td>${r.department||'—'}</td><td>${r.source}</td><td>${r.destination}</td>
+      <td>${r.cab_number||'—'}</td><td>${fmtT(r.check_in_time)}</td><td>${fmtT(r.check_out_time)}</td>
+      <td>${r.duration_str||'Active'}</td><td>${pill(r.status)}</td>
+    </tr>`).join('') : empty(11);
+  } catch(e){ tbody.innerHTML=empty(11,e.message); }
+}
+async function loadAdminEmps() {
+  const tbody=$('admin-emp-body');
+  tbody.innerHTML=empty(6,'Loading…');
+  try {
+    const {employees}=await api('GET','/admin/employees');
+    tbody.innerHTML=employees.length ? employees.map(e=>`<tr>
+      <td>${e.name}</td><td>${e.emp_id}</td><td>${e.email}</td>
+      <td>${e.department||'—'}</td><td>${e.total_rides}</td>
+      <td>${e.last_ride?fmtD(e.last_ride):'Never'}</td>
+    </tr>`).join('') : empty(6);
+  } catch(e){ tbody.innerHTML=empty(6,e.message); }
+}
+async function exportExcel() {
+  try {
+    const {rows}=await api('GET','/admin/rides/export');
+    if(!rows.length) return alert('No ride data to export.');
+    const ws=XLSX.utils.json_to_sheet(rows);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Cab Rides');
+    ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(k.length+2,14)}));
+    XLSX.writeFile(wb,`CabTrack_${new Date().toISOString().split('T')[0]}.xlsx`);
+  } catch(e){ alert('Export failed: '+e.message); }
+}
+</script>
+</body>
+</html>
